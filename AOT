@@ -1,0 +1,173 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "Age of Titans: Hub",
+   Icon = 0, -- Icon in Topbar. Can use Lucide Icons (string) or Roblox Image (number). 0 to use no icon (default).
+   LoadingTitle = "Rayfield Interface Suite",
+   LoadingSubtitle = "by Sirius",
+   ShowText = "Rayfield", -- for mobile users to unhide rayfield, change if you'd like
+   Theme = "Default", -- Check https://docs.sirius.menu/rayfield/configuration/themes
+
+   ToggleUIKeybind = "K", -- The keybind to toggle the UI visibility (string like "K" or Enum.KeyCode)
+
+   DisableRayfieldPrompts = false,
+   DisableBuildWarnings = false, -- Prevents Rayfield from warning when the script has a version mismatch with the interface
+
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = nil, -- Create a custom folder for your hub/game
+      FileName = "Big Hub"
+   },
+
+   Discord = {
+      Enabled = true, -- Prompt the user to join your Discord server if their executor supports it
+      Invite = "tkZPabzaRd", -- The Discord invite code, do not include discord.gg/. E.g. discord.gg/ ABCD would be ABCD
+      RememberJoins = true -- Set this to false to make them join the discord every time they load it up
+   },
+
+   KeySystem = false, -- Set this to true to use our key system
+   KeySettings = {
+      Title = "AOT: Hub",
+      Subtitle = "Key System",
+      Note = "Join the discord server: (https://discord.gg/tkZPabzaRd)", -- Use this to tell the user how to get a key
+      FileName = "Key", -- It is recommended to use something unique as other scripts using Rayfield may overwrite your key file
+      SaveKey = true, -- The user's key will be saved, but if you change the key, they will be unable to use your script
+      GrabKeyFromSite = false, -- If this is true, set Key below to the RAW site you would like Rayfield to get the key from
+      Key = {"7X92-K5P1-L4M8"} -- List of keys that will be accepted by the system, can be RAW file links (pastebin, github etc) or simple strings ("hello","key22")
+   }
+})
+
+
+local Tab = Window:CreateTab("Main", 4483362458) -- Title, Image
+
+
+local player = game.Players.LocalPlayer
+local pGui = player:WaitForChild("PlayerGui")
+local rs = game:GetService("ReplicatedStorage")
+
+local Toggle = Tab:CreateToggle({
+   Name = "Unlock All",
+   CurrentValue = false,
+   Flag = "UnlockToggle1",
+   Callback = function(Value)
+      if Value then
+         local kaijus = player:FindFirstChild("Kaijus")
+         
+         -- 1. UNLOCK EVERYTHING LOCALLY
+         if kaijus then
+             for _, kaiju in pairs(kaijus:GetChildren()) do
+                 if kaiju:IsA("BoolValue") then kaiju.Value = true end
+                 local sFolder = kaiju:FindFirstChild("Skins")
+                 if sFolder then
+                     for _, skin in pairs(sFolder:GetChildren()) do
+                         if skin:IsA("BoolValue") then skin.Value = true end
+                     end
+                 end
+                 if kaiju:FindFirstChild("XP") then kaiju.XP.Value = 999999 end
+             end
+         end
+
+         -- 2. HIDE THE LOCKS
+         local menu = pGui:FindFirstChild("MenuInterface")
+         if menu then
+             for _, item in pairs(menu:GetDescendants()) do
+                 if item:IsA("ImageLabel") or item:IsA("Frame") then
+                     if item.Name:lower():find("lock") or item.Name:lower():find("overlay") then
+                         item.Visible = false
+                     end
+                 end
+             end
+         end
+
+         -- 3. THE FIX: RE-WIRING THE SPAWN BUTTON
+         for _, btn in pairs(pGui:GetDescendants()) do
+             if btn:IsA("TextButton") and (btn.Text:find("Spawn") or btn.Text:find("Select")) then
+                 btn.MouseButton1Click:Connect(function()
+                     if menu and menu:FindFirstChild("KaijuName") and menu:FindFirstChild("SkinName") then
+                        local selectedKaiju = menu.KaijuName.Text:gsub(" ", "") 
+                        local selectedSkin = menu.SkinName.Text:gsub(" ", "")
+                        
+                        local remote = rs:FindFirstChild("Remotes") and (rs.Remotes:FindFirstChild("SkinEvent") or rs.Remotes:FindFirstChild("SpawnEvent"))
+                        if remote then
+                            remote:FireServer(selectedKaiju, selectedSkin)
+                        end
+                     end
+                 end)
+             end
+         end
+      end
+   end,
+})
+
+
+local player = game.Players.LocalPlayer
+local kaijus = player:WaitForChild("Kaijus")
+
+-- List of all your Kaijus
+local kaijuList = {
+    "Shimo", 
+    "EvolvedGodzilla", 
+    "ShowaGigan", 
+    "Kong", 
+    "Godzillasaurus", 
+    "GMKGoji"
+}
+
+-- The Manual Force function that actually works
+local function applySkinFix(kaijuName, skinName)
+    local folder = kaijus:FindFirstChild(kaijuName)
+    if folder then
+        -- 1. Unlock Titan and Max Stats
+        if folder:IsA("BoolValue") then folder.Value = true end
+        if folder:FindFirstChild("XP") then folder.XP.Value = 999999 end
+        if folder:FindFirstChild("Shards") then folder.Shards.Value = 999999 end
+
+        -- 2. Unlock the specific skin in the folder
+        local sFolder = folder:FindFirstChild("Skins")
+        if sFolder then
+            local target = sFolder:FindFirstChild(skinName)
+            if target then
+                target.Value = true
+            end
+        end
+
+        -- 3. FORCE the CurrentSkin value (The bypass)
+        local current = folder:FindFirstChild("CurrentSkin")
+        if current then
+            current.Value = skinName
+            
+            -- 4. THE AUTO-LOCK: Prevents the game from resetting you to BaldLizard
+            current.Changed:Connect(function(val)
+                if val ~= skinName then
+                    current.Value = skinName
+                end
+            end)
+        end
+    end
+end
+
+-- Create the Textboxes
+for _, name in pairs(kaijuList) do
+    Tab:CreateInput({
+       Name = name .. " Skin",
+       CurrentValue = "",
+       PlaceholderText = "Type skin for " .. name .. "...",
+       RemoveTextAfterFocusLost = false,
+       Flag = name .. "SkinInput",
+       Callback = function(Text)
+            applySkinFix(name, Text)
+       end,
+    })
+end
+
+local Tab = Window:CreateTab("Other", 4483362458) -- Title, Image
+
+
+local Button = Tab:CreateButton({
+   Name = "Load Infinite Yield",
+   Callback = function()
+   loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
+   end,
+})
+
+local Tab = Window:CreateTab("Credits to henntz on discord", 4483362458) -- Title, Image
